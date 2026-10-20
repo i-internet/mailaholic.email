@@ -16,8 +16,7 @@
 | Your computer | Download |
 |---|---|
 | **Windows** 10 / 11 | [**Mailaholic-Setup.exe**](https://github.com/i-internet/mailaholic.email/releases/latest/download/Mailaholic-Setup.exe) |
-| **Mac** with Apple Silicon (M1, M2, M3, M4) | [**Mailaholic-mac-arm64.dmg**](https://github.com/i-internet/mailaholic.email/releases/latest/download/Mailaholic-mac-arm64.dmg) |
-| **Mac** with Intel | [**Mailaholic-mac-x64.dmg**](https://github.com/i-internet/mailaholic.email/releases/latest/download/Mailaholic-mac-x64.dmg) |
+| **Mac** (Apple Silicon and Intel) | Coming in the next release |
 | **Ubuntu / Debian** | [**Mailaholic-linux-amd64.deb**](https://github.com/i-internet/mailaholic.email/releases/latest/download/Mailaholic-linux-amd64.deb) |
 | **Any Linux** (AppImage) | [**Mailaholic-linux-x86_64.AppImage**](https://github.com/i-internet/mailaholic.email/releases/latest/download/Mailaholic-linux-x86_64.AppImage) |
 
