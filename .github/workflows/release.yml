@@ -1,0 +1,108 @@
+# Builds the Mailaholic desktop app for Windows, macOS and Linux and publishes the
+# installers as a release of THIS (public) repo, so anyone can download them and the app's
+# auto-updater can read them.
+#
+# The source is private (i-internet/wd-mail-desktop). It is checked out with a READ-ONLY
+# deploy key (secret DESKTOP_SOURCE_DEPLOY_KEY); nothing else from it is stored here.
+#
+# Run it from the Actions tab ("Run workflow") or the API, with the tag to build, e.g. v0.1.0.
+name: Release desktop apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag in i-internet/wd-mail-desktop to build (e.g. v0.1.0)
+        required: true
+      prerelease:
+        description: Mark as a pre-release (the auto-updater ignores pre-releases)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ubuntu 22.04 keeps the AppImage/deb compatible with older glibc.
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out the app source
+        uses: actions/checkout@v4
+        with:
+          repository: i-internet/wd-mail-desktop
+          ref: ${{ inputs.ref }}
+          ssh-key: ${{ secrets.DESKTOP_SOURCE_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck and test
+        if: runner.os == 'Linux'
+        run: npm run check
+
+      - name: Package
+        run: npx electron-vite build && npx electron-builder --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml
+
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.ref }}
+          PRE: ${{ inputs.prerelease }}
+        run: |
+          ls -la out
+          VERSION="${TAG#v}"
+          cat > notes.md <<EOF
+          ## Mailaholic ${VERSION}
+
+          | | Download |
+          |---|---|
+          | **Windows** 10/11 | [Mailaholic-Setup.exe](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Mailaholic-Setup.exe) |
+          | **macOS** Apple Silicon (M1–M4) | [Mailaholic-mac-arm64.dmg](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Mailaholic-mac-arm64.dmg) |
+          | **macOS** Intel | [Mailaholic-mac-x64.dmg](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Mailaholic-mac-x64.dmg) |
+          | **Ubuntu / Debian** | [Mailaholic-linux-amd64.deb](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Mailaholic-linux-amd64.deb) |
+          | **Any Linux** (AppImage) | [Mailaholic-linux-x86_64.AppImage](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Mailaholic-linux-x86_64.AppImage) |
+
+          Installation help: https://mailaholic.email/download
+          EOF
+          FLAGS=""
+          if [ "$PRE" = "true" ]; then FLAGS="--prerelease"; else FLAGS="--latest"; fi
+          gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --title "Mailaholic ${VERSION}" --notes-file notes.md $FLAGS
